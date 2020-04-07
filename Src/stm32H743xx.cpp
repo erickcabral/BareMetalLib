@@ -7,7 +7,7 @@
 
 #include "stm32H743xx.h"
 
-RCC::RCC(__int32U rcc_baseAddress) {
+RCC::RCC(uint32_t rcc_baseAddress) {
 	/* AHB4 SETUP */
 	this->pAHB4RSTR = ((__int32U*) (rcc_baseAddress + 0x088));
 	this->pAHB4ENR = ((__int32U*) (rcc_baseAddress + 0x0E0));
@@ -23,8 +23,18 @@ void RCC::setAHB4ENR(__int32U value) {
 	*(this->pAHB4ENR) = value;
 }
 
-void RCC::setAPB4ENR(__int32U value) {
-	*(this->pAPB4ENR) = value;
+/*
+ void RCC::setAPB4ENR(int configToEnable) {
+ unsigned long int current = *(this->pAPB4ENR);
+ *(this->pAPB4ENR) = (current |= (1<<configToEnable));
+ }
+ */
+void RCC::enableSYSCFG(bool enable) {
+	if (enable) {
+		*(this->pAPB4ENR) |= (1 << SYSCFG_ENABLE);
+	} else {
+		*(this->pAPB4ENR) &= ~(1 << SYSCFG_ENABLE);
+	}
 }
 
 void RCC::setGPIOxEnable(int gpioBit, bool enable) {
@@ -51,7 +61,7 @@ void RCC::setGPIOxEnable(int gpioBit, bool enable) {
  }
  */
 /* GPIO SETUP */
-GPIOx::GPIOx(__int32U gpio_baseAddr) {
+GPIOx::GPIOx(uint32_t gpio_baseAddr) {
 	this->pMODER = (__int32U*) (gpio_baseAddr + 0x00U);
 	this->pOTYPER = (__int32U*) (gpio_baseAddr + 0x04U);
 	this->pOSPEEDR = (__int32U*) (gpio_baseAddr + 0x08U);
@@ -77,7 +87,7 @@ void GPIOx::setPinSpeed(int pinNum, int pinSpeed) {
 	int leastBit = 2 * pinNum;
 	setTwoBitsRegister(this->pOSPEEDR, leastBit, pinSpeed);
 }
-void GPIOx::setPinPUPD(int pinNum, int pinPUPD) {
+void GPIOx::setPinPUPD(uint8_t pinNum, uint8_t pinPUPD) {
 	// 2 Bits Register
 	int leastBit = 2 * pinNum;
 	setTwoBitsRegister(this->pPUPDR, leastBit, pinPUPD);
@@ -147,24 +157,23 @@ void SYSCFG::setPMCR() {
 void SYSCFG::setEXTI_CR(int pinNum, int portX) {
 	/*SELECTING EXTI_CR[x] FOR SETUP */
 	int leastBit = 0;
-
 	if (pinNum <= 3) {
-		leastBit = pinNum*4;
+		leastBit = pinNum * 4;
 		setFourBitsRegister(this->pEXTI_CR1, leastBit, portX);
 	} else if (pinNum > 3 && pinNum <= 7) {
-		leastBit = (pinNum%4)*4;
+		leastBit = (pinNum % 4) * 4;
 		setFourBitsRegister(this->pEXTI_CR2, leastBit, portX);
 	} else if (pinNum > 7 && pinNum <= 11) {
-		leastBit = (pinNum%4)*4;
+		leastBit = (pinNum % 4) * 4;
 		setFourBitsRegister(this->pEXTI_CR3, leastBit, portX);
 	} else if (pinNum > 11 && pinNum <= 15) {
-		leastBit = (pinNum%4)*4;
+		leastBit = (pinNum % 4) * 4;
 		setFourBitsRegister(this->pEXTI_CR4, leastBit, portX);
 	}
 }
 
 int SYSCFG::getBitShift(int pinNum) {
-	int bitPos = (int) (pinNum*4);
+	int bitPos = (int) (pinNum * 4);
 	if (bitPos == 0) {
 		return 0;
 	} else if (bitPos == 1) {
@@ -233,6 +242,7 @@ void EXTI::setIMR(int irqNumber, bool enable) {
 	int irqBitPosition = irqNumber % 32;
 	if (irqNumber >= 0 && irqNumber < 32) { // FIRST 32 BITS
 		setOneBitRegister(this->pEXTI_CPUIMR1, irqBitPosition, enable);
+		setOneBitRegister(this->pEXTI_CPUEMR1, irqBitPosition, enable);
 	} else if (irqNumber >= 32 && irqNumber < (32 * 2) && (irqNumber != 45)) { // SECOND 32 BITS
 		setOneBitRegister(this->pEXTI_CPUIMR2, irqBitPosition, enable);
 	} else if (irqNumber >= 64 && irqNumber < (32 * 3)) { // THIRD 32 BITS
@@ -240,7 +250,22 @@ void EXTI::setIMR(int irqNumber, bool enable) {
 	}
 }
 
-void EXTI::setGPIO_IRQ(int irqNumber, bool enable) {
+void EXTI::setPR(bool enable, uint8_t bitPos) {
+	if (enable) {
+		*(this->pEXTI_CPUIMR1) |= (1 << bitPos);
+	} else {
+		*(this->pEXTI_CPUIMR1) &= ~(1 << bitPos);
+	}
+}
+uint32_t EXTI::getPR(uint8_t value) {
+	return *(this->pEXTI_CPUPR1);
+}
+
+/**
+ *  SYSTEM STATIC FUNCTIONS
+ */
+
+void setGPIO_IRQ(int irqNumber, bool enable) {
 	int registerShifter = (int) (irqNumber / 32); //SHIFT TO THE ISERx REGISTER
 	int bitShifter =
 			registerShifter == 0 ?
@@ -299,31 +324,24 @@ void EXTI::setGPIO_IRQ(int irqNumber, bool enable) {
 			*NVIC_ICER7 |= (1 << bitShifter);
 			break;
 		}
-		/*
-		 if (enable) {
-		 if (irqNumber > 0 && irqNumber < 32) {
-		 *NVIC_ISER0 |= (1 << irqNumber);
-		 } else if (irqNumber >= 32 && irqNumber < 64) {
-		 int bitShift = (irqNumber % 32);
-		 *NVIC_ISER1 |= (1 << bitShift);
-		 } else if (irqNumber >= 64 && irqNumber < 92) {
-		 int bitShift = (irqNumber % 32);
-		 *NVIC_ISER2 |= (1 << bitShift);
-		 }
-		 } else {
-		 if (irqNumber > 0 && irqNumber < 32) {
-		 *NVIC_ICER0 |= (1 << irqNumber);
-		 } else if (irqNumber >= 32 && irqNumber < 64) {
-		 *NVIC_ICER1 |= (1 << (irqNumber % 32));
-		 } else if (irqNumber >= 64) {
-		 *NVIC_ICER2 |= (1 << (irqNumber % 64));
-		 }
-		 }
-		 */
 	}
 }
+void setIRQ_PRIORITY(uint8_t irqNumber, uint8_t priority) {
+	uint8_t irqPlace = irqNumber / 4;
+	uint8_t irqLeastBit = (irqNumber % 4) * 8;
+	uint8_t validSettingBits = (irqLeastBit + 4);
+	uint32_t *NVIC_PRIx = ((uint32_t*) (NVIC_PRI0 + irqPlace));
+	*NVIC_PRIx |= (priority << validSettingBits);
 
-/* EXTI PRIVATE FUNCTIONS */
+	uint32_t value = *NVIC_PRIx;
+	value |= (priority << validSettingBits);
+}
+
+void resetPendingRegister(uint8_t pinNumber, EXTI extiCFG) {
+	if (extiCFG.getPR(1) & (1 << pinNumber)) {
+		extiCFG.setPR(DISABLE, pinNumber);
+	}
+}
 
 /**
  * SUPPORT FUNCTION

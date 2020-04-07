@@ -8,6 +8,7 @@
 #ifndef STM32H743XX_H_
 #define STM32H743XX_H_
 
+#include <cstdint>
 using namespace std;
 
 /* CUSTOIM STM32H743 DRIVER */
@@ -24,8 +25,6 @@ using namespace std;
 
 #define __vol32U 	volatile unsigned long int
 #define __int32U 	unsigned long int
-
-
 
 /*<! NVIC IRQ BASE ADRESSES >*/
 #define NVIC_ISER0						((__vol32U*)0xE000E100U)
@@ -45,6 +44,8 @@ using namespace std;
 #define NVIC_ICER5						((__vol32U*)0XE000E194U)
 #define NVIC_ICER6						((__vol32U*)0XE000E198U)
 #define NVIC_ICER7						((__vol32U*)0XE000E19CU)
+
+#define NVIC_PRI0						((__vol32U*)0xE000E400U)
 
 /*!< BASE ADDRESSES DEFAULT >*/
 #define RCC_BASEADDRESS					0x58024400U
@@ -91,19 +92,19 @@ using namespace std;
  */
 #define DEFAULT_AHB4_VALUE			RESET_ALL
 #define DEFAULT_APB4_VALUE			0x00010000
-#define APB4_SYSCFG_ENABLE  		0x00010002
+#define SYSCFG_ENABLE  				1
 
 class RCC {
 
 public:
-	RCC(__int32U rcc_baseAddress);
+	RCC(uint32_t rcc_baseAddress);
 	/*setting full registers*/
 	void setAHB4ENR(__int32U value);
-	void setAPB4ENR(__int32U value);
+	//void setAPB4ENR(int configToEnable);
 
 	/*set Single Register*/
 	void setGPIOxEnable(int gpioBit, bool enable);
-	//void setSYSCONFIG();
+	void enableSYSCFG(bool enable);
 private:
 	__vol32U *pAHB4RSTR; // = ((__vol32U*)(RCC_BASEADDRES + 0x088));		//OFFSET -> 0x088
 	__vol32U *pAHB4ENR;			//OFFSET -> 0x0E0
@@ -154,14 +155,10 @@ private:
 #define SPD_VHIGH			3	//	0b11	: Very high speed
 
 /* RESISTOR MODE */
-#define PUPD_DISABLED		0	// 	0b00	: No pull-up, pull-down
-#define PUPD_PULL_UP		1	// 	0b01	: Pull-up
-#define PUPD_PULL_DOWN		2	//	0b10	: Pull-down
-#define PUDP_RESERVED		3	//	0b11	: Reserved
-
-/* OUTPUT STATE */
-#define OUTPUT_LOW	 		0	// 	0b00	: LOW
-#define OUTPUT_HIGH			1	// 	0b01	: HIGH
+#define PUPD_DISABLED		 0b00	// 	0	: No pull-up, pull-down
+#define PUPD_PULL_UP		 0b01	// 	1	: Pull-up
+#define PUPD_PULL_DOWN		 0b10	//	2	: Pull-down
+#define PUDP_RESERVED		 0b11	//	3	: Reserved
 
 /* ALT FUNCTION */
 #define AF0	 				0	// 	0b0000: AF0
@@ -184,14 +181,14 @@ private:
 // GPIO CLASS //
 class GPIOx {
 public:
-	GPIOx(__vol32U gpio_baseAddr);
+	GPIOx(uint32_t gpio_baseAddr);
 	void setGPIOxEnable(int gpioBit, bool enable);
 
 	//PIN CONFIG//
 	void setPinMode(int pinNum, int pinMode); 	// 2 Bits Register
 	void setPinType(int pinNum, int pinType);	// 2 Bits Register
 	void setPinSpeed(int pinNum, int pinSpeed);	// 2 Bits Register
-	void setPinPUPD(int pinNum, int pinPUPD);	// 2 Bits Register
+	void setPinPUPD(uint8_t pinNum, uint8_t pinPUPD);	// 2 Bits Register
 	int getPinIDR(int pinNum);	// 1 Bit Register
 	void setPinODR(int pinNum, int pinODR);	// 1 Bit Register
 	void setPinBSRR(int pinNum, int pinBSRR);	// 2 Bits Register
@@ -218,8 +215,6 @@ private:
  */
 #define SYSCFG_BASEADDRESS		0x58000400U
 #define SYSCFG_RESET_VALUE		RESET_ALL
-
-
 
 #define EXTI_15_10_BASEADDRESS	0x000000E0
 #define EXTI_15_10_POSITION		40
@@ -269,7 +264,8 @@ public:
 	void setCPUIMR1(int value);
 	void setIMR(int pinNum, bool enable);
 
-	void setGPIO_IRQ(int irqNumber, bool enable);
+	void setPR(bool enable, uint8_t bitPos);
+	uint32_t getPR(uint8_t prPosition);
 
 private:
 	__vol32U *pEXTI_RTSR1 = ((__vol32U*) (EXTI_BASE_ADDR + 0x00U)); //OFFSET 0x00U
@@ -309,11 +305,12 @@ private:
 /**
  * SUPPORT FUNCTIONS FOR SETTING 1 and 2 BITS REGISTERS
  */
+void setGPIO_IRQ(int irqNumber, bool enable);
+void setIRQ_PRIORITY(uint8_t irqNumber, uint8_t priority);
+void resetPendingRegister(uint8_t pinNumber, EXTI extiCFG);
 
-void setOneBitRegister(__vol32U *registerToSet, int bitToSet,
-		int valueToSet);
-void setTwoBitsRegister(__vol32U *registerToSet, int bitToSet,
-		int valueToSet);
+void setOneBitRegister(__vol32U *registerToSet, int bitToSet, int valueToSet);
+void setTwoBitsRegister(__vol32U *registerToSet, int bitToSet, int valueToSet);
 void setFourBitsRegister(__vol32U *registerToSet, int leastBit,
 		int binaryValue);
 #endif /* STM32H743XX_H_ */
