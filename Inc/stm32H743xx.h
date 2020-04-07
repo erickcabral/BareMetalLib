@@ -16,7 +16,7 @@ using namespace std;
 #define SET				1
 #define RESET			0
 #define ENABLE			SET
-#define DISABLE			DISABLE
+#define DISABLE			RESET
 #define HIGH			SET
 #define LOW				DISABLE
 
@@ -74,17 +74,17 @@ using namespace std;
 /*
  *  GPIO SETUP STRUCTURE
  */
-#define GPIOA 						0
-#define GPIOB 						1
-#define GPIOC 						2
-#define GPIOD 						3
-#define GPIOE 						4
-#define GPIOF 						5
-#define GPIOG 						6
-#define GPIOH 						7
-#define GPIOI 						8
-#define GPIOJ						9
-#define GPIOK						10
+#define GPIOA 						0b0000 	//0
+#define GPIOB 						0b0001 	//1
+#define GPIOC 						0b0010	//2
+#define GPIOD 						0b0011	//3
+#define GPIOE 						0b0100	//4
+#define GPIOF 						0b0101	//5
+#define GPIOG 						0b0110	//6
+#define GPIOH 						0b0111	//7
+#define GPIOI 						0b1000	//8
+#define GPIOJ						0b1001	//9
+#define GPIOK						0b1010	//10
 
 /**
  *  RCC SETUP API
@@ -219,17 +219,7 @@ private:
 #define SYSCFG_BASEADDRESS		0x58000400U
 #define SYSCFG_RESET_VALUE		RESET_ALL
 
-#define SYSCFG_PORT_A			0b0000
-#define	SYSCFG_PORT_B			0b0001
-#define	SYSCFG_PORT_C			0b0010
-#define	SYSCFG_PORT_D			0b0011
-#define	SYSCFG_PORT_E			0b0100
-#define	SYSCFG_PORT_F			0b0101
-#define	SYSCFG_PORT_G			0b0110
-#define	SYSCFG_PORT_H			0b0111
-#define	SYSCFG_PORT_I			0b1000
-#define	SYSCFG_PORT_J			0b1001
-#define	SYSCFG_PORT_K			0b1010
+
 
 #define EXTI_15_10_BASEADDRESS	0x000000E0
 #define EXTI_15_10_POSITION		40

@@ -85,7 +85,7 @@ void GPIOx::setPinPUPD(int pinNum, int pinPUPD) {
 
 int GPIOx::getPinIDR(int pinNum) {
 	// 1 Bit Register
-	int pinState = 0;
+	int pinState = (*(this->pIDR) >> pinNum);
 	//TODO....
 	return pinState;
 }
@@ -146,20 +146,25 @@ void SYSCFG::setPMCR() {
  */
 void SYSCFG::setEXTI_CR(int pinNum, int portX) {
 	/*SELECTING EXTI_CR[x] FOR SETUP */
-	int leastBit = getBitShift(pinNum);
+	int leastBit = 0;
+
 	if (pinNum <= 3) {
+		leastBit = pinNum*4;
 		setFourBitsRegister(this->pEXTI_CR1, leastBit, portX);
 	} else if (pinNum > 3 && pinNum <= 7) {
+		leastBit = (pinNum%4)*4;
 		setFourBitsRegister(this->pEXTI_CR2, leastBit, portX);
 	} else if (pinNum > 7 && pinNum <= 11) {
+		leastBit = (pinNum%4)*4;
 		setFourBitsRegister(this->pEXTI_CR3, leastBit, portX);
 	} else if (pinNum > 11 && pinNum <= 15) {
+		leastBit = (pinNum%4)*4;
 		setFourBitsRegister(this->pEXTI_CR4, leastBit, portX);
 	}
 }
 
 int SYSCFG::getBitShift(int pinNum) {
-	int bitPos = (int) (pinNum / 4);
+	int bitPos = (int) (pinNum*4);
 	if (bitPos == 0) {
 		return 0;
 	} else if (bitPos == 1) {
@@ -224,14 +229,22 @@ void EXTI::setFT_RT1(int pinNum) {
 	*(this->pEXTI_RTSR1) |= (1 << pinNum);
 }
 
-void EXTI::setIMR(int pinNum, bool enable) {
-	//int state = enable ? 1 : 0;
-	setOneBitRegister(this->pEXTI_CPUIMR1, pinNum, enable);
+void EXTI::setIMR(int irqNumber, bool enable) {
+	int irqBitPosition = irqNumber % 32;
+	if (irqNumber >= 0 && irqNumber < 32) { // FIRST 32 BITS
+		setOneBitRegister(this->pEXTI_CPUIMR1, irqBitPosition, enable);
+	} else if (irqNumber >= 32 && irqNumber < (32 * 2) && (irqNumber != 45)) { // SECOND 32 BITS
+		setOneBitRegister(this->pEXTI_CPUIMR2, irqBitPosition, enable);
+	} else if (irqNumber >= 64 && irqNumber < (32 * 3)) { // THIRD 32 BITS
+		setOneBitRegister(this->pEXTI_CPUIMR3, irqBitPosition, enable);
+	}
 }
 
 void EXTI::setGPIO_IRQ(int irqNumber, bool enable) {
 	int registerShifter = (int) (irqNumber / 32); //SHIFT TO THE ISERx REGISTER
-	int bitShifter = registerShifter == 0 ? irqNumber : (irqNumber % (32 * registerShifter)); //SHIFT TO THE ISERx REGISTER IRQ BIT
+	int bitShifter =
+			registerShifter == 0 ?
+					irqNumber : (irqNumber % (32 * registerShifter)); //SHIFT TO THE ISERx REGISTER IRQ BIT
 	if (enable) {
 		switch (registerShifter) {
 		case 0:
@@ -316,13 +329,11 @@ void EXTI::setGPIO_IRQ(int irqNumber, bool enable) {
  * SUPPORT FUNCTION
  */
 
-void setOneBitRegister(__vol32U *registerToSet, int leastBit,
-		int valueToSet) {
+void setOneBitRegister(__vol32U *registerToSet, int leastBit, int valueToSet) {
 	*registerToSet &= ~(1 << (leastBit));  //RESET BIT BEFORE SET
 	*registerToSet |= (valueToSet << (leastBit));
 }
-void setTwoBitsRegister(__vol32U *registerToSet, int leastBit,
-		int valueToSet) {
+void setTwoBitsRegister(__vol32U *registerToSet, int leastBit, int valueToSet) {
 	*registerToSet &= ~(1 << (leastBit + 1) | 1 << leastBit); //RESET BIT BEFORE SET
 	*registerToSet |= (valueToSet << leastBit);
 }
