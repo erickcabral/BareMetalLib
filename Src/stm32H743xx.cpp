@@ -252,9 +252,9 @@ void EXTI::setIMR(int irqNumber, bool enable) {
 
 void EXTI::setPR(bool enable, uint8_t bitPos) {
 	if (enable) {
-		*(this->pEXTI_CPUIMR1) |= (1 << bitPos);
+		*(this->pEXTI_CPUPR1) |= (1 << bitPos);
 	} else {
-		*(this->pEXTI_CPUIMR1) &= ~(1 << bitPos);
+		*(this->pEXTI_CPUPR1) &= ~(1 << bitPos);
 	}
 }
 uint32_t EXTI::getPR(uint8_t value) {
@@ -266,12 +266,10 @@ uint32_t EXTI::getPR(uint8_t value) {
  */
 
 void setGPIO_IRQ(int irqNumber, bool enable) {
-	int registerShifter = (int) (irqNumber / 32); //SHIFT TO THE ISERx REGISTER
-	int bitShifter =
-			registerShifter == 0 ?
-					irqNumber : (irqNumber % (32 * registerShifter)); //SHIFT TO THE ISERx REGISTER IRQ BIT
+	int iserX = (int) (irqNumber / 32); //SELECT ISER[x] Register
+	int bitShifter = iserX == 0 ? irqNumber : (irqNumber % (32 * iserX)); //SHIFT TO THE ISERx REGISTER IRQ BIT
 	if (enable) {
-		switch (registerShifter) {
+		switch (iserX) {
 		case 0:
 			*NVIC_ISER0 |= (1 << bitShifter);
 			break;
@@ -298,7 +296,7 @@ void setGPIO_IRQ(int irqNumber, bool enable) {
 			break;
 		}
 	} else {
-		switch (registerShifter) {
+		switch (iserX) {
 		case 0:
 			*NVIC_ICER0 |= (1 << bitShifter);
 			break;
@@ -326,21 +324,32 @@ void setGPIO_IRQ(int irqNumber, bool enable) {
 		}
 	}
 }
-void setIRQ_PRIORITY(uint8_t irqNumber, uint8_t priority) {
+
+void setIRQ_PRIORITY(uint8_t irqNumber, uint16_t priority) {
 	uint8_t irqPlace = irqNumber / 4;
 	uint8_t irqLeastBit = (irqNumber % 4) * 8;
 	uint8_t validSettingBits = (irqLeastBit + 4);
 	uint32_t *NVIC_PRIx = ((uint32_t*) (NVIC_PRI0 + irqPlace));
-	*NVIC_PRIx |= (priority << validSettingBits);
 
 	uint32_t value = *NVIC_PRIx;
 	value |= (priority << validSettingBits);
+	*NVIC_PRIx |= (priority << validSettingBits);
 }
 
-void resetPendingRegister(uint8_t pinNumber, EXTI extiCFG) {
+void setNVIC_PendingBit(int irqNumber, bool enable) {
+	uint8_t isprX = (irqNumber / 32);
+	uint8_t bitShift = isprX == 0 ? irqNumber : (irqNumber % (32 * isprX));
+	uint32_t *NVIC_ISPRx = ((uint32_t*) (NVIC_ISPR0 + isprX));
+	*NVIC_ISPRx |= (1 << bitShift);
+}
+
+void resetEXTIPendingRegister(uint8_t pinNumber, EXTI extiCFG) {
 	if (extiCFG.getPR(1) & (1 << pinNumber)) {
 		extiCFG.setPR(DISABLE, pinNumber);
 	}
+}
+void setEXTIPendingRegister(uint8_t pinNumber, EXTI extiCFG) {
+	extiCFG.setPR(ENABLE, pinNumber);
 }
 
 /**

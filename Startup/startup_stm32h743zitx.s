@@ -333,7 +333,7 @@ g_pfnVectors:
 	.weak	RCC_IRQHandler
 	.thumb_set RCC_IRQHandler,Default_Handler
 
-	.weak	EXTI0_IRQHandler
+	.weak	EXTI0_IRQHandler //0x00000058
 	.thumb_set EXTI0_IRQHandler,Default_Handler
 
 	.weak	EXTI1_IRQHandler
